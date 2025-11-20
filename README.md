@@ -5,18 +5,23 @@ A GStreamer-based multi-stream video player and recorder with a GTK3 GUI, writte
 ## Features
 
 - **Multi-Stream Support**: Configurable via `config.json` to handle multiple video sources simultaneously.
-- **Central Control Panel**: A dedicated "Controls" window to manage all video streams.
+- **Central Control Panel**: A dedicated "Controls" window to manage all video streams with integrated log viewer.
 - **Selective Recording**:
   - Master "Record" switch.
-  - Individual stream selection for recording.
-  - Records to **MP4** format (H.264/AAC container).
+  - Individual stream selection for recording (per-source defaults configurable).
+  - Records to **MP4** format (H.264 video).
 - **Metadata Generation**:
   - Generates a sidecar `.json` file for each video recording.
   - Contains start/stop timestamps (absolute wall-clock time), frame counts, PTS/DTS, and average FPS.
 - **Dynamic Data Directory**:
   - Select output directory via the UI.
+  - Automatically creates directories if they don't exist.
   - Automatically restarts active recordings when the directory is changed.
 - **Hardware Acceleration**: Uses `glimagesink` for efficient rendering.
+- **Flexible Video Preview**:
+  - Right-click context menu to toggle aspect ratio constraints.
+  - Optional secondary `glimagesink` output per source (configurable via `tee_gl_view` flag).
+- **Live Log Monitoring**: Scrollable text view displaying application messages in real-time.
 
 ## Dependencies
 
@@ -47,19 +52,32 @@ The application reads from a `config.json` file in the working directory.
 Example `config.json`:
 ```json
 {
-    "data_directory": "/home/user/Videos",
+    "data_directory": "data",
     "sources": [
         {
             "name": "Camera 1",
-            "stream": "videotestsrc pattern=ball"
+            "stream": "videotestsrc pattern=ball",
+            "record": true,
+            "tee_gl_view": false
         },
         {
             "name": "Camera 2",
-            "stream": "videotestsrc pattern=smpte"
+            "stream": "videotestsrc pattern=smpte",
+            "record": false,
+            "tee_gl_view": true
         }
     ]
 }
 ```
+
+### Configuration Fields
+
+- **`data_directory`**: Output directory for recordings (relative or absolute path). Created automatically if it doesn't exist.
+- **`sources`**: Array of video source configurations.
+  - **`name`**: Display name for the source.
+  - **`stream`**: GStreamer pipeline description for the video source.
+  - **`record`**: Boolean indicating whether this source should be selected for recording by default.
+  - **`tee_gl_view`**: Boolean to enable an additional `glimagesink` window for this source (useful for debugging or multi-monitor setups).
 
 ## Building
 
@@ -114,11 +132,14 @@ Example Metadata:
 video-recorder/
 ├── CMakeLists.txt          # Root CMake configuration
 ├── config.json             # Configuration file
+├── README.md               # This file
 ├── include/                # Header files
+│   ├── gtk_stream_buf.h    # GTK stream buffer for log redirection
 │   ├── video_controller.h  # Main controller logic
 │   ├── video_pipeline.h    # GStreamer pipeline wrapper
 │   └── video_preview.h     # GTK video window
 └── src/                    # Source files
+    ├── gtk_stream_buf.cpp
     ├── main.cpp            # Entry point
     ├── video_controller.cpp
     ├── video_pipeline.cpp

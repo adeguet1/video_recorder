@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <json/json.h>
 #include <fstream>
+#include <filesystem>
 
 // Helper to cleanup recording bin on the main thread
 static gboolean cleanup_recording_bin(gpointer data)
@@ -39,9 +40,10 @@ static GstPadProbeReturn eos_cb(GstPad* pad, GstPadProbeInfo* info, gpointer use
     return GST_PAD_PROBE_PASS;
 }
 
-video_pipeline::video_pipeline(const std::string& name, const std::string& stream_desc)
+video_pipeline::video_pipeline(const std::string& name, const std::string& stream_desc, bool tee_gl_view)
     : m_name(name)
     , m_stream_desc(stream_desc)
+    , m_tee_gl_view(tee_gl_view)
     , m_pipeline(nullptr)
     , m_tee(nullptr)
     , m_recording_bin(nullptr)
@@ -118,6 +120,36 @@ bool video_pipeline::build()
         return false;
     }
 
+    // Add extra glimagesink branch if tee_gl_view is enabled
+    if (m_tee_gl_view) {
+        GstElement* extra_queue = gst_element_factory_make("queue", "extra_queue");
+        GstElement* extra_glimagesink = gst_element_factory_make("glimagesink", "extra_glimagesink");
+        
+        if (!extra_queue || !extra_glimagesink) {
+            std::cerr << "Failed to create extra glimagesink elements for " << m_name << std::endl;
+            return false;
+        }
+        
+        g_object_set(extra_glimagesink, "force-aspect-ratio", FALSE, nullptr);
+        
+        gst_bin_add_many(GST_BIN(m_pipeline), extra_queue, extra_glimagesink, nullptr);
+        
+        GstPad* tee_extra_pad = gst_element_request_pad_simple(m_tee, "src_%u");
+        GstPad* extra_queue_sink_pad = gst_element_get_static_pad(extra_queue, "sink");
+        
+        if (gst_pad_link(tee_extra_pad, extra_queue_sink_pad) != GST_PAD_LINK_OK) {
+            std::cerr << "Failed to link tee to extra queue for " << m_name << std::endl;
+            return false;
+        }
+        gst_object_unref(tee_extra_pad);
+        gst_object_unref(extra_queue_sink_pad);
+        
+        if (!gst_element_link(extra_queue, extra_glimagesink)) {
+            std::cerr << "Failed to link extra queue to glimagesink for " << m_name << std::endl;
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -185,6 +217,7 @@ void video_pipeline::start_recording()
     std::stringstream ss;
     
     if (!m_output_directory.empty()) {
+        std::filesystem::create_directories(m_output_directory);
         ss << m_output_directory << "/";
     }
 

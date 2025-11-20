@@ -2,14 +2,16 @@
   "data_directory": "data",
   "sources": [
     {
-      "name": "Test Source 1",
+      "name": "bars",
       "stream": "videotestsrc",
-      "record": true
+      "record": true,
+      "tee_gl_view": false
     },
     {
-      "name": "Bouncing Ball",
+      "name": "ball",
       "stream": "videotestsrc pattern=ball",
-      "record": false
+      "record": false,
+      "tee_gl_view": true
     }
   ]
 }

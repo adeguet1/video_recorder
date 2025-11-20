@@ -4,6 +4,8 @@
 #include <json/json.h>
 #include <vector>
 #include <memory>
+#include <iostream>
+#include <streambuf>
 #include "video_pipeline.h"
 
 class video_controller {
@@ -20,6 +22,7 @@ private:
     GtkWidget* m_main_record_button;
     GtkWidget* m_dir_button;
     GtkWidget* m_dir_label;
+    GtkWidget* m_log_view;
     std::string m_data_dir;
     
     std::vector<std::unique_ptr<video_pipeline>> m_pipelines;
@@ -27,6 +30,10 @@ private:
     
     int m_open_windows;
     bool m_quitting;
+
+    // Cout redirection
+    std::streambuf* m_old_cout_buf;
+    std::unique_ptr<std::streambuf> m_new_cout_buf;
 
     void update_recording_state();
     void on_window_destroy();

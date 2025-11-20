@@ -22,7 +22,7 @@ struct RecordingMetadata {
 
 class video_pipeline {
 public:
-    video_pipeline(const std::string& name, const std::string& stream_desc);
+    video_pipeline(const std::string& name, const std::string& stream_desc, bool tee_gl_view = false);
     ~video_pipeline();
 
     bool build();
@@ -37,6 +37,7 @@ private:
     std::string m_name;
     std::string m_stream_desc;
     std::string m_output_directory;
+    bool m_tee_gl_view;
     GstElement* m_pipeline;
     GstElement* m_tee;
     GstElement* m_recording_bin;

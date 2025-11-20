@@ -1,5 +1,7 @@
 #include "video_controller.h"
+#include "gtk_stream_buf.h"
 #include <iostream>
+#include <unistd.h>
 
 video_controller::video_controller(const Json::Value& config)
     : m_config(config)
@@ -7,9 +9,15 @@ video_controller::video_controller(const Json::Value& config)
     , m_main_record_button(nullptr)
     , m_dir_button(nullptr)
     , m_dir_label(nullptr)
+    , m_log_view(nullptr)
     , m_open_windows(0)
     , m_quitting(false)
 {
+    // Redirect cout
+    m_old_cout_buf = std::cout.rdbuf();
+    m_new_cout_buf = std::make_unique<GtkStreamBuf>();
+    std::cout.rdbuf(m_new_cout_buf.get());
+
     if (m_config.isMember("data_directory")) {
         m_data_dir = m_config["data_directory"].asString();
     } else {
@@ -21,6 +29,11 @@ video_controller::video_controller(const Json::Value& config)
 
 video_controller::~video_controller()
 {
+    // Restore cout
+    if (m_old_cout_buf) {
+        std::cout.rdbuf(m_old_cout_buf);
+    }
+
     m_quitting = true;
     m_pipelines.clear();
 }
@@ -30,7 +43,7 @@ void video_controller::create_ui()
     // Create Control Window
     m_control_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(m_control_window), "Controls");
-    gtk_window_set_default_size(GTK_WINDOW(m_control_window), 300, 400);
+    gtk_window_set_default_size(GTK_WINDOW(m_control_window), 400, 600);
     g_signal_connect(m_control_window, "destroy", G_CALLBACK(on_window_destroy_cb), this);
     m_open_windows++;
 
@@ -63,10 +76,11 @@ void video_controller::create_ui()
     for (const auto& source : sources) {
         std::string name = source.get("name", "Unknown").asString();
         std::string stream = source.get("stream", "videotestsrc").asString();
+        bool tee_gl_view = source.get("tee_gl_view", false).asBool();
         
         std::cout << "Creating pipeline for: " << name << std::endl;
 
-        auto pipe = std::make_unique<video_pipeline>(name, stream);
+        auto pipe = std::make_unique<video_pipeline>(name, stream, tee_gl_view);
         pipe->set_output_directory(m_data_dir);
         
         if (pipe->build()) {
@@ -101,6 +115,22 @@ void video_controller::create_ui()
     }
 
     gtk_box_pack_start(GTK_BOX(control_box), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 5);
+
+    // Log Window
+    GtkWidget* scrolled_window = gtk_scrolled_window_new(NULL, NULL);
+    gtk_widget_set_size_request(scrolled_window, -1, 150);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), 
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    
+    m_log_view = gtk_text_view_new();
+    gtk_text_view_set_editable(GTK_TEXT_VIEW(m_log_view), FALSE);
+    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(m_log_view), GTK_WRAP_WORD);
+    gtk_container_add(GTK_CONTAINER(scrolled_window), m_log_view);
+    
+    gtk_box_pack_start(GTK_BOX(control_box), scrolled_window, TRUE, TRUE, 5);
+
+    // Connect log view to stream buffer
+    static_cast<GtkStreamBuf*>(m_new_cout_buf.get())->set_widgets(GTK_TEXT_VIEW(m_log_view));
 
     // Quit button
     GtkWidget* quit_btn = gtk_button_new_with_label("Quit");
@@ -175,6 +205,10 @@ void video_controller::on_dir_button_clicked()
                                          GTK_RESPONSE_ACCEPT,
                                          NULL);
 
+    if (!m_data_dir.empty()) {
+        gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), m_data_dir.c_str());
+    }
+
     res = gtk_dialog_run(GTK_DIALOG(dialog));
     if (res == GTK_RESPONSE_ACCEPT)
     {
@@ -227,7 +261,12 @@ gboolean video_controller::restart_recording_cb(gpointer data)
 
 void video_controller::on_window_destroy_cb(GtkWidget* widget, gpointer data)
 {
-    static_cast<video_controller*>(data)->on_window_destroy();
+    video_controller* self = static_cast<video_controller*>(data);
+    if (widget == self->m_control_window) {
+        self->on_quit_clicked();
+    } else {
+        self->on_window_destroy();
+    }
 }
 
 void video_controller::on_main_record_toggled_cb(GtkToggleButton* button, gpointer data)

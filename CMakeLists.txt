@@ -35,6 +35,7 @@ set(SOURCES
     src/video_preview.cpp
     src/video_pipeline.cpp
     src/video_controller.cpp
+    src/gtk_stream_buf.cpp
 )
 
 # Create executable
