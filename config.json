@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "name": "Test Source 1",
+      "stream": "videotestsrc"
+    },
+    {
+      "name": "Bouncing Ball",
+      "stream": "videotestsrc pattern=ball"
+    }
+  ]
+}

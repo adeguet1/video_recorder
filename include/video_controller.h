@@ -1,0 +1,45 @@
+#pragma once
+
+#include <gtk/gtk.h>
+#include <json/json.h>
+#include <vector>
+#include <memory>
+#include "video_pipeline.h"
+
+class video_controller {
+public:
+    video_controller(const Json::Value& config);
+    ~video_controller();
+
+    void create_ui();
+    bool has_open_windows() const;
+
+private:
+    Json::Value m_config;
+    GtkWidget* m_control_window;
+    GtkWidget* m_main_record_button;
+    GtkWidget* m_dir_button;
+    GtkWidget* m_dir_label;
+    std::string m_data_dir;
+    
+    std::vector<std::unique_ptr<video_pipeline>> m_pipelines;
+    std::vector<GtkWidget*> m_checkboxes;
+    
+    int m_open_windows;
+    bool m_quitting;
+
+    void update_recording_state();
+    void on_window_destroy();
+    void on_main_record_toggled();
+    void on_source_check_toggled();
+    void on_quit_clicked();
+    void on_dir_button_clicked();
+
+    // Static callbacks
+    static void on_window_destroy_cb(GtkWidget* widget, gpointer data);
+    static void on_main_record_toggled_cb(GtkToggleButton* button, gpointer data);
+    static void on_source_check_toggled_cb(GtkToggleButton* button, gpointer data);
+    static void on_quit_clicked_cb(GtkButton* button, gpointer data);
+    static void on_dir_button_clicked_cb(GtkButton* button, gpointer data);
+    static gboolean restart_recording_cb(gpointer data);
+};

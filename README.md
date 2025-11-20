@@ -1,0 +1,130 @@
+# Video Recorder
+
+A GStreamer-based multi-stream video player and recorder with a GTK3 GUI, written in C++ using CMake.
+
+## Features
+
+- **Multi-Stream Support**: Configurable via `config.json` to handle multiple video sources simultaneously.
+- **Central Control Panel**: A dedicated "Controls" window to manage all video streams.
+- **Selective Recording**:
+  - Master "Record" switch.
+  - Individual stream selection for recording.
+  - Records to **MP4** format (H.264/AAC container).
+- **Metadata Generation**:
+  - Generates a sidecar `.json` file for each video recording.
+  - Contains start/stop timestamps (absolute wall-clock time), frame counts, PTS/DTS, and average FPS.
+- **Dynamic Data Directory**:
+  - Select output directory via the UI.
+  - Automatically restarts active recordings when the directory is changed.
+- **Hardware Acceleration**: Uses `glimagesink` for efficient rendering.
+
+## Dependencies
+
+- CMake (>= 3.10)
+- C++17 compiler
+- GStreamer 1.0 (Core, Video, GL, Plugins)
+- GTK3
+- JsonCpp
+
+### Installing Dependencies
+
+#### Ubuntu/Debian
+```bash
+sudo apt-get update
+sudo apt-get install cmake build-essential
+sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+sudo apt-get install gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+sudo apt-get install gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+sudo apt-get install gstreamer1.0-libav gstreamer1.0-tools
+sudo apt-get install gstreamer1.0-gl gstreamer1.0-plugins-base-apps
+sudo apt-get install libgtk-3-dev libjsoncpp-dev
+```
+
+## Configuration
+
+The application reads from a `config.json` file in the working directory.
+
+Example `config.json`:
+```json
+{
+    "data_directory": "/home/user/Videos",
+    "sources": [
+        {
+            "name": "Camera 1",
+            "stream": "videotestsrc pattern=ball"
+        },
+        {
+            "name": "Camera 2",
+            "stream": "videotestsrc pattern=smpte"
+        }
+    ]
+}
+```
+
+## Building
+
+1. Create and enter the build directory:
+```bash
+mkdir -p build && cd build
+```
+
+2. Configure the project with CMake:
+```bash
+cmake ..
+```
+
+3. Build the project:
+```bash
+make
+```
+
+## Running
+
+Ensure `config.json` is in the current directory (or the build directory if running from there).
+
+```bash
+./video_recorder
+```
+
+## Output
+
+Recorded files are saved to the configured data directory with the naming convention:
+`{Source_Name}_{YYYY-MM-DD_HH-MM-SS}.mp4`
+
+A corresponding JSON metadata file is created:
+`{Source_Name}_{YYYY-MM-DD_HH-MM-SS}.mp4.json`
+
+Example Metadata:
+```json
+{
+    "filename": "Camera_1_2025-11-19_14-30-00.mp4",
+    "start_abs_time": "2025-11-19 14:30:00.123",
+    "stop_abs_time": "2025-11-19 14:30:10.456",
+    "recorded_frames": 300,
+    "average_fps": 29.97,
+    "start_frame": 100,
+    "stop_frame": 400,
+    ...
+}
+```
+
+## Project Structure
+
+```
+video-recorder/
+├── CMakeLists.txt          # Root CMake configuration
+├── config.json             # Configuration file
+├── include/                # Header files
+│   ├── video_controller.h  # Main controller logic
+│   ├── video_pipeline.h    # GStreamer pipeline wrapper
+│   └── video_preview.h     # GTK video window
+└── src/                    # Source files
+    ├── main.cpp            # Entry point
+    ├── video_controller.cpp
+    ├── video_pipeline.cpp
+    └── video_preview.cpp
+```
+
+## License
+
+MIT License
